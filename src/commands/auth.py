@@ -1,10 +1,10 @@
 from bot import Bot
+import aiohttp
 import discord
 import jwt
 import logging
 import msal
 import os
-import requests
 
 async def Bail(Interaction: discord.Interaction, Message = None):
 	await Interaction.edit_original_response(content = Message if Message else "Something went wrong.\nPlease contact an administrator.")
@@ -52,34 +52,33 @@ async def GetUserInformation(Interaction: discord.Integration, AccessToken: str)
 	if DecodedToken is None: return (None, None)
 
 	AccessURL = f"{DecodedToken.get("aud")}/v1.0/me"
-
-	# Do this manually because the msgraph-sdk way doesn't work for whatever reason
-	Response = requests.get(AccessURL, headers = {
+	Headers = {
 		"Authorization": f"Bearer {AccessToken}",
 		"Content-Type": "applcation/json"
-	})
+	}
 
-	Status = Response.status_code
-	ResponseData = Response.json()
+	# Do this manually because the msgraph-sdk way doesn't work for whatever reason
+	async with aiohttp.ClientSession() as Session:
+		async with Session.get(AccessURL, Headers) as Response:
+			Status = Response.status
+			ResponseData = await Response.json()
 
-	Response.close()
+			if Status != 200: # OK
+				logging.getLogger("discord.client").error(f"Graph user information request for user {Interaction.user.id} failed: {Status}")
+				await Bail(Interaction)
 
-	if Status != 200: # OK
-		logging.getLogger("discord.client").error(f"Graph user information request for user {Interaction.user.id} failed: {Status}")
-		await Bail(Interaction)
+				return None
 
-		return (None, None)
+			DisplayName = ResponseData.get("displayName")
+			EmailAddress = ResponseData.get("mail") or ResponseData.get("userPrincipalName")
 
-	DisplayName = ResponseData.get("displayName")
-	EmailAddress = ResponseData.get("mail") or ResponseData.get("userPrincipalName")
+			if DisplayName is None or EmailAddress is None:
+				logging.getLogger("discord.client").error(f"Graph user information request for user {Interaction.user.id} is missing required information")
+				await Bail(Interaction)
 
-	if DisplayName is None or EmailAddress is None:
-		logging.getLogger("discord.client").error(f"Graph user information request for user {Interaction.user.id} is missing required information")
-		await Bail(Interaction)
+				return None
 
-		return (None, None)
-
-	return (DisplayName, EmailAddress)
+			return ResponseData
 
 @Bot.tree.command(name = "auth")
 async def auth(Interaction: discord.Interaction):
@@ -99,8 +98,11 @@ async def auth(Interaction: discord.Interaction):
 	if AccessToken is None: return
 
 	# Test token
-	(DisplayName, EmailAddress) = await GetUserInformation(Interaction, AccessToken)
-	if EmailAddress is None: return
+	UserInformation = await GetUserInformation(Interaction, AccessToken)
+	if UserInformation is None: return
+
+	DisplayName = UserInformation.get("displayName")
+	EmailAddress = UserInformation.get("mail") or UserInformation.get("userPrincipalName")
 
 	logging.getLogger("discord.client").info(f"User {Interaction.user.id} is '{DisplayName}' ('{EmailAddress}')")
 
