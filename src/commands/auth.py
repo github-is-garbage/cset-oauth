@@ -1,4 +1,5 @@
 from bot import Bot
+from threadpool import RunInThread
 import aiohttp
 import discord
 import jwt
@@ -10,8 +11,10 @@ async def Bail(Interaction: discord.Interaction, Message = None):
 	await Interaction.edit_original_response(content = Message if Message else "Something went wrong.\nPlease contact an administrator.")
 
 async def GetLinkingInformation(Interaction: discord.Interaction):
+	logging.getLogger("discord.client").info(f"Requesting linking code for user {Interaction.user.id}")
+
 	App = msal.PublicClientApplication(os.getenv("AZURE_APPLICATION_ID"), authority = os.getenv("MSAL_AUTHORITY"))
-	Flow = App.initiate_device_flow(scopes = [ os.getenv("MSAL_SCOPE") ])
+	Flow = await RunInThread(App.initiate_device_flow, [ os.getenv("MSAL_SCOPE") ])
 
 	UserCode = Flow.get("user_code")
 	VerificationURL = Flow.get("verification_uri")
@@ -25,7 +28,9 @@ async def GetLinkingInformation(Interaction: discord.Interaction):
 	return (App, Flow, UserCode, VerificationURL)
 
 async def GetAccessToken(Interaction: discord.Interaction, App: msal.PublicClientApplication, Flow: dict):
-	Result = App.acquire_token_by_device_flow(Flow)
+	logging.getLogger("discord.client").info(f"Requesting access token for user {Interaction.user.id}")
+
+	Result = await RunInThread(App.acquire_token_by_device_flow, Flow)
 	AccessToken = Result.get("access_token")
 
 	if AccessToken is None:
@@ -59,7 +64,7 @@ async def GetUserInformation(Interaction: discord.Integration, AccessToken: str)
 
 	# Do this manually because the msgraph-sdk way doesn't work for whatever reason
 	async with aiohttp.ClientSession() as Session:
-		async with Session.get(AccessURL, Headers) as Response:
+		async with Session.get(AccessURL, headers = Headers) as Response:
 			Status = Response.status
 			ResponseData = await Response.json()
 
