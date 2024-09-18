@@ -5,4 +5,8 @@ load_dotenv(find_dotenv())
 import os
 from bot import Bot
 
+from folder_loader import LoadFromFolder
+
+LoadFromFolder("events")
+
 Bot.run(os.getenv("BOT_TOKEN"))
