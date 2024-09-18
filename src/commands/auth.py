@@ -1,10 +1,10 @@
 from bot import Bot
 import discord
+import jwt
 import logging
 import msal
 import os
 import requests
-import jwt
 
 async def Bail(Interaction: discord.Interaction, Message = None):
 	await Interaction.edit_original_response(content = Message if Message else "Something went wrong.\nPlease contact an administrator.")
