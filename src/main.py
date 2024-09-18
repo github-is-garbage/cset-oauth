@@ -7,6 +7,7 @@ from bot import Bot
 
 from folder_loader import LoadFromFolder
 
+LoadFromFolder("commands")
 LoadFromFolder("events")
 
 Bot.run(os.getenv("BOT_TOKEN"))
