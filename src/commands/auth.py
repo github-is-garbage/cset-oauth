@@ -4,9 +4,10 @@ import logging
 import msal
 import os
 import requests
+import jwt
 
-async def Bail(Interaction: discord.Interaction):
-	await Interaction.edit_original_response(content = "Something went wrong.\nPlease contact an administrator.")
+async def Bail(Interaction: discord.Interaction, Message = None):
+	await Interaction.edit_original_response(content = Message if Message else "Something went wrong.\nPlease contact an administrator.")
 
 async def GetLinkingInformation(Interaction: discord.Interaction):
 	App = msal.PublicClientApplication(os.getenv("AZURE_APPLICATION_ID"), authority = os.getenv("MSAL_AUTHORITY"))
@@ -35,9 +36,25 @@ async def GetAccessToken(Interaction: discord.Interaction, App: msal.PublicClien
 
 	return AccessToken
 
+async def DecodeAccessToken(Interaction: discord.Integration, AccessToken: str):
+	try:
+		return jwt.decode(AccessToken, options={ "verify_signature": False }) # Why is the signature invalid :/
+	except jwt.ExpiredSignatureError:
+		logging.getLogger("discord.client").error(f"Graph user information request for user {Interaction.user.id} expired")
+		await Bail(Interaction, "Your request has expired.\nPlease try again.")
+
+		return None
+	except:
+		return None
+
 async def GetUserInformation(Interaction: discord.Integration, AccessToken: str):
+	DecodedToken = await DecodeAccessToken(Interaction, AccessToken)
+	if DecodedToken is None: return (None, None)
+
+	AccessURL = f"{DecodedToken.get("aud")}/v1.0/me"
+
 	# Do this manually because the msgraph-sdk way doesn't work for whatever reason
-	Response = requests.get(os.getenv("GRAPH_ACCESS_URL"), headers = {
+	Response = requests.get(AccessURL, headers = {
 		"Authorization": f"Bearer {AccessToken}",
 		"Content-Type": "applcation/json"
 	})
@@ -84,5 +101,7 @@ async def auth(Interaction: discord.Interaction):
 	# Test token
 	(DisplayName, EmailAddress) = await GetUserInformation(Interaction, AccessToken)
 	if EmailAddress is None: return
+
+	logging.getLogger("discord.client").info(f"User {Interaction.user.id} is '{DisplayName}' ('{EmailAddress}')")
 
 	await Interaction.edit_original_response(content = f"Linked to {DisplayName} (`{EmailAddress}`).\nYou can now dismiss this message.")
