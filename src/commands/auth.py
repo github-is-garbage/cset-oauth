@@ -89,26 +89,37 @@ async def GetUserInformation(Interaction: discord.Integration, AccessToken: str)
 async def auth(Interaction: discord.Interaction):
 	logging.getLogger("discord.client").info(f"User {Interaction.user.id} has initiated a link request")
 
-	# Get code
-	await Interaction.response.send_message("Sending request to Microsoft...", ephemeral = True)
+	await Interaction.response.send_message("Starting linking process...", ephemeral = True)
 
-	(App, Flow, UserCode, VerificationURL) = await GetLinkingInformation(Interaction)
-	if App is None: return
+	try:
+		# Get code
+		await Interaction.edit_original_response(content = "Sending request to Microsoft...")
 
-	logging.getLogger("discord.client").info(f"Linking code for user {Interaction.user.id} is '{UserCode}'")
-	await Interaction.edit_original_response(content = f"To sign in, use a web browser to open the page <{VerificationURL}> and enter the code `{UserCode}`")
+		(App, Flow, UserCode, VerificationURL) = await GetLinkingInformation(Interaction)
+		if App is None: return
 
-	# Get token
-	AccessToken = await GetAccessToken(Interaction, App, Flow)
-	if AccessToken is None: return
+		logging.getLogger("discord.client").info(f"Linking code for user {Interaction.user.id} is '{UserCode}'")
+		await Interaction.edit_original_response(content = f"To sign in, use a web browser to open the page <{VerificationURL}> and enter the code `{UserCode}`")
 
-	# Test token
-	UserInformation = await GetUserInformation(Interaction, AccessToken)
-	if UserInformation is None: return
+		# Get token
+		AccessToken = await GetAccessToken(Interaction, App, Flow)
+		if AccessToken is None: return
 
-	DisplayName = UserInformation.get("displayName")
-	EmailAddress = UserInformation.get("mail") or UserInformation.get("userPrincipalName")
+		# Test token
+		UserInformation = await GetUserInformation(Interaction, AccessToken)
+		if UserInformation is None: return
 
-	logging.getLogger("discord.client").info(f"User {Interaction.user.id} is '{DisplayName}' ('{EmailAddress}')")
+		DisplayName = UserInformation.get("displayName")
+		EmailAddress = UserInformation.get("mail") or UserInformation.get("userPrincipalName")
 
-	await Interaction.edit_original_response(content = f"Linked to {DisplayName} (`{EmailAddress}`).\nYou can now dismiss this message.")
+		logging.getLogger("discord.client").info(f"User {Interaction.user.id} is '{DisplayName}' ('{EmailAddress}')")
+
+		await Interaction.edit_original_response(content = f"Linked to {DisplayName} (`{EmailAddress}`).\nYou can now dismiss this message.")
+	except Exception as Error:
+		logging.getLogger("discord.client").error(f"Link request {Interaction.user.id} had something go very wrong!\n{Error}")
+
+		try:
+			# This may not be the exact reason, but we need something to tell them
+			await Bail(Interaction, "Your request has expired.\nPlease try again.")
+		except:
+			logging.getLogger("discord.client").error(f"Failed to notify {Interaction.user.id} of error")
