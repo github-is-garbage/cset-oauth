@@ -1,3 +1,4 @@
+audioop-lts
 discord.py
 msal
 pyjwt
