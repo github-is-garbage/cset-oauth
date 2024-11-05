@@ -2,7 +2,7 @@ from bot import Bot
 from threadpool import RunInThread
 import discord
 import logging
-from canvasapi import Canvas, current_user, paginated_list, course
+from canvasapi import Canvas, current_user, paginated_list, course, enrollment
 from datetime import datetime, timezone
 import os
 
@@ -31,6 +31,12 @@ async def HasCSETCourse(Courses: paginated_list.PaginatedList) -> tuple[bool, co
 
 	return False, None
 
+async def GetCourseTeacher(Course: course.Course) -> enrollment.Enrollment:
+	for Enrollment in Course.get_enrollments(type = [ "TeacherEnrollment" ]):
+		return Enrollment
+
+	return None
+
 @Bot.tree.command(name = "auth")
 @discord.app_commands.describe(access_token = "Your Canvas API Access Token. Run the /help command for information on obtaining one.")
 async def auth(Interaction: discord.Interaction, access_token: str):
@@ -52,9 +58,18 @@ async def auth(Interaction: discord.Interaction, access_token: str):
 		if not HasCSET:
 			return await Interaction.edit_original_response(content = "You are not currently enrolled in any CSET course")
 
-		print(CSETCourse.__dict__)
+		TeacherEnrollment = await GetCourseTeacher(CSETCourse)
+		CourseTeacher = GetAttributeSafe(TeacherEnrollment, "user")
 
-		await Interaction.edit_original_response(content = f"Linking as `{ CanvasProfile.get("name") }`")
+		if not TeacherEnrollment or not CourseTeacher:
+			return await Interaction.edit_original_response(content = "Unable to determine instructor")
+
+		TeacherName = CourseTeacher.get("name")
+
+		if not TeacherName:
+			return await Interaction.edit_original_response(content = "Received unnamed instructor") # Should never happen
+
+		await Interaction.edit_original_response(content = f"Linking as `{ CanvasProfile.get("name") }` for ` { TeacherName } `")
 	except Exception as Error:
 		logging.getLogger("discord.client").error(f"Link request {Interaction.user.id} had something go very wrong!\n{Error}")
 
