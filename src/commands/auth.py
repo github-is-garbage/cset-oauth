@@ -37,7 +37,7 @@ async def GetCourseTeacher(Course: course.Course) -> enrollment.Enrollment:
 	return None
 
 async def StartUserLink(Interaction: discord.Interaction, AccessToken: str) -> tuple[str, str, str, str]:
-	CanvasGateway = Canvas(os.environ.get("CANVAS_API_URL"), AccessToken)
+	CanvasGateway = Canvas(os.getenv("CANVAS_API_URL"), AccessToken)
 	CanvasProfile = await GetUserProfile(CanvasGateway)
 
 	UserName = CanvasProfile.get("name")
@@ -79,10 +79,10 @@ async def StartUserLink(Interaction: discord.Interaction, AccessToken: str) -> t
 # gross gross gross gross gross gross gross
 
 CSET_TEACHERS = {
-	os.environ.get("TEACHER_A"): os.environ.get("TEACHER_A_ROLE"),
-	os.environ.get("TEACHER_B"): os.environ.get("TEACHER_B_ROLE"),
-	os.environ.get("TEACHER_C"): os.environ.get("TEACHER_C_ROLE"),
-	os.environ.get("TEACHER_D"): os.environ.get("TEACHER_D_ROLE")
+	os.getenv("TEACHER_A"): os.getenv("TEACHER_A_ROLE"),
+	os.getenv("TEACHER_B"): os.getenv("TEACHER_B_ROLE"),
+	os.getenv("TEACHER_C"): os.getenv("TEACHER_C_ROLE"),
+	os.getenv("TEACHER_D"): os.getenv("TEACHER_D_ROLE")
 }
 
 @Bot.tree.command(name = "auth")
