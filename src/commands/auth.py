@@ -89,7 +89,7 @@ async def auth(Interaction: discord.Interaction, access_token: str):
 		TeacherRole: str = CSET_TEACHERS.get(TeacherName)
 
 		if not TeacherName or not TeacherRole:
-			await Interaction.edit_original_response(content = "Can't find an instructor/role to link")
+			return
 
 		logging.getLogger("discord.client").info(f"User { Interaction.user.id } should have role { TeacherRole }")
 	except Exception as Error:
