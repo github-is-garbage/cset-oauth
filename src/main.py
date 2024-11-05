@@ -9,13 +9,11 @@ from folder_loader import LoadFromFolder
 
 LoadFromFolder("commands")
 LoadFromFolder("events")
+LoadFromFolder("models")
 
-from sqlalchemy import text
 from db import Engine
+from models.base import ModelBase
 
-with Engine.connect() as Connection:
-	Connection.execute(text("insert into linked_users values (123, 123, \"test man dude\")"))
-	Connection.commit()
-
+ModelBase.metadata.create_all(Engine, checkfirst = True)
 
 Bot.run(os.getenv("BOT_TOKEN"))
