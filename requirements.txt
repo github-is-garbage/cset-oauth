@@ -1,5 +1,4 @@
 audioop-lts
 discord.py
-msal
-pyjwt
+canvasapi
 python-dotenv
