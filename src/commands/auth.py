@@ -1,9 +1,13 @@
 from bot import Bot
-import discord
-import logging
 from canvasapi import Canvas, current_user, paginated_list, course, enrollment, user
 from datetime import datetime, timezone
+import discord
+import logging
 import os
+
+from db import Engine
+from sqlalchemy.orm import Session
+from models.linked_user import LinkedUser
 
 def GetAttributeSafe(Object: any, Attribute: str):
 	return getattr(Object, Attribute) if hasattr(Object, Attribute) else None
@@ -36,19 +40,21 @@ async def GetCourseTeacher(Course: course.Course) -> enrollment.Enrollment:
 
 	return None
 
-async def StartUserLink(Interaction: discord.Interaction, AccessToken: str) -> tuple[str, str, str, str]:
+async def StartUserLink(Interaction: discord.Interaction, AccessToken: str) -> tuple[str, str, str, str, LinkedUser]:
 	CanvasGateway = Canvas(os.getenv("CANVAS_API_URL"), AccessToken)
 	CanvasProfile = await GetUserProfile(CanvasGateway)
 
 	UserName = CanvasProfile.get("name")
 	if UserName is None:
-		return await Interaction.edit_original_response(content = "This account does not have a valid name") # Should never happen
+		await Interaction.edit_original_response(content = "This account does not have a valid name") # Should never happen
+		return None, None, None, None, None
 
 	Courses: paginated_list.PaginatedList = CanvasGateway.get_courses()
 	HasCSET, CSETCourse = await HasCSETCourse(Courses)
 
 	if not HasCSET:
-		return await Interaction.edit_original_response(content = "You are not currently enrolled in any CSET course")
+		await Interaction.edit_original_response(content = "You are not currently enrolled in any CSET course")
+		return None, None, None, None, None
 
 	logging.getLogger("discord.client").info(f"User { Interaction.user.id } has CSET course { CSETCourse.name }")
 
@@ -56,12 +62,14 @@ async def StartUserLink(Interaction: discord.Interaction, AccessToken: str) -> t
 	CourseTeacher: user.User = GetAttributeSafe(TeacherEnrollment, "user")
 
 	if not TeacherEnrollment or not CourseTeacher:
-		return await Interaction.edit_original_response(content = "Unable to determine instructor")
+		await Interaction.edit_original_response(content = "Unable to determine instructor")
+		return None, None, None, None, None
 
 	TeacherName = CourseTeacher.get("name")
 
 	if not TeacherName:
-		return await Interaction.edit_original_response(content = "Received unnamed instructor") # Should never happen
+		await Interaction.edit_original_response(content = "Received unnamed instructor") # Should never happen
+		return None, None, None, None, None
 
 	StudentID = CanvasProfile.get("id")
 	StudentName = CanvasProfile.get("name")
@@ -74,16 +82,38 @@ async def StartUserLink(Interaction: discord.Interaction, AccessToken: str) -> t
 	else:
 		await Interaction.edit_original_response(content = f"Linking as student `{ StudentName }` for instructor `{ TeacherName }`")
 
-	return StudentID, StudentName, TeacherID, TeacherName
+	# Plop into database
+	try:
+		logging.getLogger("discord.client").info(f"Opening session for { Interaction.user.id }")
 
-# gross gross gross gross gross gross gross
+		with Session(Engine) as DatabaseSession:
+			ExistingUser: LinkedUser = DatabaseSession.query(LinkedUser).get(StudentID)
 
-CSET_TEACHERS = {
-	os.getenv("TEACHER_A"): os.getenv("TEACHER_A_ROLE"),
-	os.getenv("TEACHER_B"): os.getenv("TEACHER_B_ROLE"),
-	os.getenv("TEACHER_C"): os.getenv("TEACHER_C_ROLE"),
-	os.getenv("TEACHER_D"): os.getenv("TEACHER_D_ROLE")
-}
+			if ExistingUser:
+				await Interaction.edit_original_response(content = f"You are already linked as `{ ExistingUser.Name }`")
+				return None, None, None, None, None
+
+			logging.getLogger("discord.client").info(f"Creating object for { Interaction.user.id }")
+
+			NewUser = LinkedUser(
+				UserID = StudentID,
+				DiscordID = Interaction.user.id,
+				Name = StudentName
+			)
+
+			logging.getLogger("discord.client").info(f"Committing object { Interaction.user.id }")
+
+			DatabaseSession.add(NewUser)
+			DatabaseSession.commit()
+
+		logging.getLogger("discord.client").info(f"Closed session for { Interaction.user.id }")
+
+		return StudentID, StudentName, TeacherID, TeacherName, NewUser
+	except Exception as Error:
+		logging.getLogger("discord.client").error(f"{ Error }")
+
+		await Interaction.edit_original_response(content = "Failed to link!")
+		return None, None, None, None, None
 
 @Bot.tree.command(name = "auth")
 @discord.app_commands.describe(access_token = "Your Canvas API Access Token. Run the /help command for information on obtaining one.")
@@ -93,15 +123,12 @@ async def auth(Interaction: discord.Interaction, access_token: str):
 	await Interaction.response.send_message("Starting linking process...", ephemeral = True)
 
 	try:
-		StudentID, StudentName, TeacherID, TeacherName = await StartUserLink(Interaction, access_token)
-		TeacherRole: str = CSET_TEACHERS.get(TeacherName)
+		StudentID, StudentName, TeacherID, TeacherName, NewUser = await StartUserLink(Interaction, access_token)
 
-		if not TeacherName or not TeacherRole:
+		if not NewUser:
 			return
 
-		logging.getLogger("discord.client").info(f"User { Interaction.user.id } should have role { TeacherRole }")
-
-		print(StudentID, StudentName, TeacherID, TeacherName)
+		logging.getLogger("discord.client").info(f"User { Interaction.user.id } did the thing")
 	except Exception as Error:
 		logging.getLogger("discord.client").error(f"Link request { Interaction.user.id } had something go very wrong!\n{Error}")
 
