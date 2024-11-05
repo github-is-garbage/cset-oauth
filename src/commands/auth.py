@@ -36,7 +36,7 @@ async def GetCourseTeacher(Course: course.Course) -> enrollment.Enrollment:
 
 	return None
 
-async def StartUserLink(Interaction: discord.Interaction, AccessToken: str) -> str:
+async def StartUserLink(Interaction: discord.Interaction, AccessToken: str) -> tuple[str, str, str, str]:
 	CanvasGateway = Canvas(os.environ.get("CANVAS_API_URL"), AccessToken)
 	CanvasProfile = await GetUserProfile(CanvasGateway)
 
@@ -63,10 +63,18 @@ async def StartUserLink(Interaction: discord.Interaction, AccessToken: str) -> s
 	if not TeacherName:
 		return await Interaction.edit_original_response(content = "Received unnamed instructor") # Should never happen
 
-	logging.getLogger("discord.client").info(f"User { Interaction.user.id } is { CanvasProfile.get("name") } linking with { TeacherName }")
-	await Interaction.edit_original_response(content = f"Linking as `{ CanvasProfile.get("name") }` for `{ TeacherName }`")
+	StudentID = CanvasProfile.get("id")
+	StudentName = CanvasProfile.get("name")
+	TeacherID = CourseTeacher.get("id")
 
-	return TeacherName
+	logging.getLogger("discord.client").info(f"User { Interaction.user.id } is { StudentName } ({ StudentID }) linking with { TeacherName } ({ TeacherID })")
+
+	if StudentID == TeacherID:
+		await Interaction.edit_original_response(content = f"Linking as instructor `{ TeacherName }`")
+	else:
+		await Interaction.edit_original_response(content = f"Linking as student `{ StudentName }` for instructor `{ TeacherName }`")
+
+	return StudentID, StudentName, TeacherID, TeacherName
 
 # gross gross gross gross gross gross gross
 
@@ -85,13 +93,15 @@ async def auth(Interaction: discord.Interaction, access_token: str):
 	await Interaction.response.send_message("Starting linking process...", ephemeral = True)
 
 	try:
-		TeacherName: str = await StartUserLink(Interaction, access_token)
+		StudentID, StudentName, TeacherID, TeacherName = await StartUserLink(Interaction, access_token)
 		TeacherRole: str = CSET_TEACHERS.get(TeacherName)
 
 		if not TeacherName or not TeacherRole:
 			return
 
 		logging.getLogger("discord.client").info(f"User { Interaction.user.id } should have role { TeacherRole }")
+
+		print(StudentID, StudentName, TeacherID, TeacherName)
 	except Exception as Error:
 		logging.getLogger("discord.client").error(f"Link request { Interaction.user.id } had something go very wrong!\n{Error}")
 
