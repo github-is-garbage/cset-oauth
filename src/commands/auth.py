@@ -37,6 +37,35 @@ async def GetCourseTeacher(Course: course.Course) -> enrollment.Enrollment:
 
 	return None
 
+async def StartUserLink(Interaction: discord.Interaction, AccessToken: str) -> str:
+	CanvasGateway = Canvas(os.environ.get("CANVAS_API_URL"), AccessToken)
+	CanvasProfile = await GetUserProfile(CanvasGateway)
+
+	UserName = CanvasProfile.get("name")
+	if UserName is None:
+		return await Interaction.edit_original_response(content = "This account does not have a valid name") # Should never happen
+
+	Courses: paginated_list.PaginatedList = CanvasGateway.get_courses()
+	HasCSET, CSETCourse = await HasCSETCourse(Courses)
+
+	if not HasCSET:
+		return await Interaction.edit_original_response(content = "You are not currently enrolled in any CSET course")
+
+	TeacherEnrollment = await GetCourseTeacher(CSETCourse)
+	CourseTeacher = GetAttributeSafe(TeacherEnrollment, "user")
+
+	if not TeacherEnrollment or not CourseTeacher:
+		return await Interaction.edit_original_response(content = "Unable to determine instructor")
+
+	TeacherName = CourseTeacher.get("name")
+
+	if not TeacherName:
+		return await Interaction.edit_original_response(content = "Received unnamed instructor") # Should never happen
+
+	await Interaction.edit_original_response(content = f"Linking as `{ CanvasProfile.get("name") }` for `{ TeacherName }`")
+
+	return TeacherName
+
 @Bot.tree.command(name = "auth")
 @discord.app_commands.describe(access_token = "Your Canvas API Access Token. Run the /help command for information on obtaining one.")
 async def auth(Interaction: discord.Interaction, access_token: str):
@@ -45,31 +74,9 @@ async def auth(Interaction: discord.Interaction, access_token: str):
 	await Interaction.response.send_message("Starting linking process...", ephemeral = True)
 
 	try:
-		CanvasGateway = Canvas(os.environ.get("CANVAS_API_URL"), access_token)
-		CanvasProfile = await GetUserProfile(CanvasGateway)
+		TeacherName: str = await StartUserLink(Interaction, access_token)
 
-		UserName = CanvasProfile.get("name")
-		if UserName is None:
-			return await Interaction.edit_original_response(content = "This account does not have a valid name") # Should never happen
-
-		Courses: paginated_list.PaginatedList = CanvasGateway.get_courses()
-		HasCSET, CSETCourse = await HasCSETCourse(Courses)
-
-		if not HasCSET:
-			return await Interaction.edit_original_response(content = "You are not currently enrolled in any CSET course")
-
-		TeacherEnrollment = await GetCourseTeacher(CSETCourse)
-		CourseTeacher = GetAttributeSafe(TeacherEnrollment, "user")
-
-		if not TeacherEnrollment or not CourseTeacher:
-			return await Interaction.edit_original_response(content = "Unable to determine instructor")
-
-		TeacherName = CourseTeacher.get("name")
-
-		if not TeacherName:
-			return await Interaction.edit_original_response(content = "Received unnamed instructor") # Should never happen
-
-		await Interaction.edit_original_response(content = f"Linking as `{ CanvasProfile.get("name") }` for ` { TeacherName } `")
+		print(TeacherName)
 	except Exception as Error:
 		logging.getLogger("discord.client").error(f"Link request {Interaction.user.id} had something go very wrong!\n{Error}")
 
