@@ -22,4 +22,4 @@ class InstructorRole(ModelBase):
 		name = "user_id"
 	)
 
-	Instructor: Mapped["LinkedUser"] = relationship("LinkedUser", remote_side = [ UserID ])
+	Instructor: Mapped["LinkedUser"] = relationship("LinkedUser", foreign_keys = [ UserID ])
