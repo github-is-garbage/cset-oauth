@@ -2,8 +2,12 @@ from bot import Bot
 from threadpool import RunInThread
 import discord
 import logging
-from canvasapi import Canvas, current_user, paginated_list
+from canvasapi import Canvas, current_user, paginated_list, course
+from datetime import datetime, timezone
 import os
+
+def GetAttributeSafe(Object: any, Attribute: str):
+	return getattr(Object, Attribute) if hasattr(Object, Attribute) else None
 
 async def GetUserProfile(CanvasGateway: Canvas):
 	CanvasUser: current_user.CurrentUser = CanvasGateway.get_current_user()
@@ -11,14 +15,19 @@ async def GetUserProfile(CanvasGateway: Canvas):
 
 	return CanvasProfile
 
-async def HasCSETCourse(Courses: paginated_list.PaginatedList):
+async def HasCSETCourse(Courses: paginated_list.PaginatedList) -> tuple[bool, course.Course]:
 	for Course in Courses:
-		CourseName: str = Course.name if hasattr(Course, "name") else None
-		if not CourseName: continue
+		CourseName: str = GetAttributeSafe(Course, "name")
+		if not CourseName: continue # Should never happen
 
-		Index = CourseName.find("CSET")
-		if Index >= 0:
-			return True, Course
+		Index: int = CourseName.find("CSET")
+		if Index < 0: continue # Not CSET
+
+		EndDate: datetime = GetAttributeSafe(Course, "end_at_date")
+		if not EndDate: continue
+		if EndDate < datetime.now(timezone.utc): continue # Closed
+
+		return True, Course
 
 	return False, None
 
