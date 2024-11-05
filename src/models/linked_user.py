@@ -44,4 +44,3 @@ class LinkedUser(ModelBase):
 	)
 
 	Instructor: Mapped["LinkedUser"] = relationship("LinkedUser", remote_side = [ UserID ])
-	DiscordRole: Mapped["InstructorRole"] = relationship("InstructorRole", remote_side = [ DiscordRoleID ])
