@@ -1,8 +1,7 @@
 from bot import Bot
-from threadpool import RunInThread
 import discord
 import logging
-from canvasapi import Canvas, current_user, paginated_list, course, enrollment
+from canvasapi import Canvas, current_user, paginated_list, course, enrollment, user
 from datetime import datetime, timezone
 import os
 
@@ -51,8 +50,10 @@ async def StartUserLink(Interaction: discord.Interaction, AccessToken: str) -> s
 	if not HasCSET:
 		return await Interaction.edit_original_response(content = "You are not currently enrolled in any CSET course")
 
+	logging.getLogger("discord.client").info(f"User { Interaction.user.id } has CSET course { CSETCourse.name }")
+
 	TeacherEnrollment = await GetCourseTeacher(CSETCourse)
-	CourseTeacher = GetAttributeSafe(TeacherEnrollment, "user")
+	CourseTeacher: user.User = GetAttributeSafe(TeacherEnrollment, "user")
 
 	if not TeacherEnrollment or not CourseTeacher:
 		return await Interaction.edit_original_response(content = "Unable to determine instructor")
@@ -62,9 +63,19 @@ async def StartUserLink(Interaction: discord.Interaction, AccessToken: str) -> s
 	if not TeacherName:
 		return await Interaction.edit_original_response(content = "Received unnamed instructor") # Should never happen
 
+	logging.getLogger("discord.client").info(f"User { Interaction.user.id } is { CanvasProfile.get("name") } linking with { TeacherName }")
 	await Interaction.edit_original_response(content = f"Linking as `{ CanvasProfile.get("name") }` for `{ TeacherName }`")
 
 	return TeacherName
+
+# gross gross gross gross gross gross gross
+
+CSET_TEACHERS = {
+	os.environ.get("TEACHER_A"): os.environ.get("TEACHER_A_ROLE"),
+	os.environ.get("TEACHER_B"): os.environ.get("TEACHER_B_ROLE"),
+	os.environ.get("TEACHER_C"): os.environ.get("TEACHER_C_ROLE"),
+	os.environ.get("TEACHER_D"): os.environ.get("TEACHER_D_ROLE")
+}
 
 @Bot.tree.command(name = "auth")
 @discord.app_commands.describe(access_token = "Your Canvas API Access Token. Run the /help command for information on obtaining one.")
@@ -75,9 +86,13 @@ async def auth(Interaction: discord.Interaction, access_token: str):
 
 	try:
 		TeacherName: str = await StartUserLink(Interaction, access_token)
+		TeacherRole: str = CSET_TEACHERS.get(TeacherName)
 
-		print(TeacherName)
+		if not TeacherName or not TeacherRole:
+			await Interaction.edit_original_response(content = "Can't find an instructor/role to link")
+
+		logging.getLogger("discord.client").info(f"User { Interaction.user.id } should have role { TeacherRole }")
 	except Exception as Error:
-		logging.getLogger("discord.client").error(f"Link request {Interaction.user.id} had something go very wrong!\n{Error}")
+		logging.getLogger("discord.client").error(f"Link request { Interaction.user.id } had something go very wrong!\n{Error}")
 
 		await Interaction.edit_original_response(content = "Something went wrong :(")
