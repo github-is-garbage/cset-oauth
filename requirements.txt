@@ -1,4 +1,6 @@
 audioop-lts
-discord.py
 canvasapi
+discord.py
+mysql-connector-python
 python-dotenv
+sqlalchemy
