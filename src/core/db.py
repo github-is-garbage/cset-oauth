@@ -16,7 +16,6 @@ Engine = create_engine(ConnectionURL, echo = True)
 
 def create_all_tables():
 	from models.linked_user import LinkedUser
-	from models.instructor_role import InstructorRole
 	from models.section_role import SectionRole
 
 	ModelBase.metadata.create_all(Engine, checkfirst = True)

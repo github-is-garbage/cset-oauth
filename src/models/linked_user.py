@@ -37,7 +37,6 @@ class LinkedUser(ModelBase):
 
 	DiscordRoleID: Mapped[c_uint64 | None] = mapped_column(
 		BIGINT(unsigned = True),
-		ForeignKey("instructor_roles.role_id"),
 
 		name = "instructor_role_id",
 		nullable = True

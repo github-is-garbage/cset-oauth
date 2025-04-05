@@ -8,11 +8,11 @@ from ctypes import c_uint64
 class SectionRole(ModelBase):
 	__tablename__ = "section_roles"
 
-	Email: Mapped[str] = mapped_column(
+	InstructorName: Mapped[str] = mapped_column(
 		VARCHAR(255),
 
-		name = "email",
-		primary_key = True
+		name = "instructor_name",
+		primary_key = True,
 	)
 
 	RoleID: Mapped[c_uint64] = mapped_column(

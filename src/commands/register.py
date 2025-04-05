@@ -13,19 +13,19 @@ class RegisterCommand(commands.Cog):
 
 	@app_commands.command(name = "register", description = "Link an instructor's email with a section and role.")
 	@app_commands.describe(
-		email = "Instructor email address",
+		name = "Instructor name as it appears in Canvas",
 		section = "Course section this instructor teaches",
 		role = "Discord role to assign to students"
 	)
 	async def register(
 		self,
 		interaction: discord.Interaction,
-		email: str,
+		name: str,
 		section: SectionType,
 		role: discord.Role
 	):
 		with Session(Engine) as db:
-			existing = db.get(SectionRole, email.lower())
+			existing = db.get(SectionRole, name.lower())
 
 			if existing:
 				existing.RoleID = role.id
@@ -34,12 +34,12 @@ class RegisterCommand(commands.Cog):
 				msg = "Updated existing mapping."
 			else:
 				db.add(SectionRole(
-					Email = email.lower(),
+					InstructorName = name.lower(),
 					Section = section.value,
 					RoleID = role.id
 				))
 
-				msg = "Registered new instructor-section-role mapping."
+				msg = "Registered new instructor-section-role mapping." # words words words
 
 			db.commit()
 
