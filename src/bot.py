@@ -1,12 +1,11 @@
 import discord
 from discord.ext import commands
 
-Intentions = discord.Intents.default()
-Intentions.members = True
+Intents = discord.Intents.default()
+Intents.members = True
 
 Bot = commands.Bot(
 	command_prefix = ";",
-	intents = Intentions,
-
+	intents = Intents,
 	case_insensitive = True
 )

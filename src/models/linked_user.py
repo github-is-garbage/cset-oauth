@@ -24,7 +24,7 @@ class LinkedUser(ModelBase):
 	Name: Mapped[str] = mapped_column(
 		VARCHAR(255),
 
-		name = "name",
+		name = "name"
 	)
 
 	InstructorID: Mapped[c_uint64 | None] = mapped_column(
@@ -43,4 +43,4 @@ class LinkedUser(ModelBase):
 		nullable = True
 	)
 
-	Instructor: Mapped["LinkedUser"] = relationship("LinkedUser", remote_side = [ UserID ])
+	Instructor: Mapped["LinkedUser"] = relationship("LinkedUser", remote_side = [UserID])

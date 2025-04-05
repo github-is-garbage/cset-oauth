@@ -3,17 +3,18 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
 import os
+import asyncio
 from bot import Bot
+from core.db import create_all_tables
 
-from folder_loader import LoadFromFolder
+create_all_tables()
 
-LoadFromFolder("commands")
-LoadFromFolder("events")
-LoadFromFolder("models")
+async def load_extensions(): # Stupid
+	await Bot.load_extension("commands.auth")
+	await Bot.load_extension("commands.register")
 
-from db import Engine
-from models.base import ModelBase
+asyncio.run(load_extensions())
 
-ModelBase.metadata.create_all(Engine, checkfirst = True)
+import events.ready
 
 Bot.run(os.getenv("BOT_TOKEN"))

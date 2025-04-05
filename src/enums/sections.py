@@ -1,0 +1,7 @@
+from enum import Enum
+
+class SectionType(str, Enum):
+	AM_FRESHMAN = "AM_FRESHMAN"
+	PM_FRESHMAN = "PM_FRESHMAN"
+	AM_SOPHOMORE = "AM_SOPHOMORE"
+	PM_SOPHOMORE = "PM_SOPHOMORE"

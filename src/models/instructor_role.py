@@ -16,10 +16,10 @@ class InstructorRole(ModelBase):
 	)
 
 	UserID: Mapped[c_uint64] = mapped_column(
-		BIGINT(unsigned = True),
+		BIGINT(unsigned=True),
 		ForeignKey("linked_users.user_id"),
 
 		name = "user_id"
 	)
 
-	Instructor: Mapped["LinkedUser"] = relationship("LinkedUser", foreign_keys = [ UserID ])
+	Instructor: Mapped["LinkedUser"] = relationship("LinkedUser", foreign_keys = [UserID])
